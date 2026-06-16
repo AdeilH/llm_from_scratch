@@ -1,0 +1,84 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+bin/
+obj/
+lib/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+DartConfiguration.tcl
+Testing/
+
+# Make
+Makefile
+*.make
+
+# Ninja
+.ninja_deps
+.ninja_log
+build.ninja
+rules.ninja
+
+# Compiled object files
+*.o
+*.obj
+*.lo
+*.la
+*.slo
+
+# Libraries
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Debug / profiling files
+*.dSYM/
+*.pdb
+*.ilk
+*.map
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+
+# Precompiled headers / modules
+*.gch
+*.pch
+*.pcm
+*.ifc
+*. BMI
+*.bmi
+
+# C++ modules / compiler generated
+gcm.cache/
+*.gcm
+
+# Dependency files
+*.d
+*.dep
+
+# IDEs / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# CLion / JetBrains
+cmake
