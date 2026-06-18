@@ -49,10 +49,8 @@ namespace BPEHelpers {
                 utf8_char.push_back(static_cast<char8_t>((code_point / 64) + 192));
                 utf8_char.push_back(static_cast<char8_t>((code_point % 64) + 128));
             }
-
             output[bs[i]] = utf8_char;
         }
-
         return output;
     }
 
@@ -65,9 +63,6 @@ namespace BPEHelpers {
         }
         return output;
     }
-
-    export class Encoder {
-    };
 
     export std::unordered_map<int, std::u8string> bytes_to_unicode() {
         std::unordered_map<int, std::u8string> output{};
@@ -122,7 +117,7 @@ namespace BPEHelpers {
 
     // with no spaces and no punctuation as tokens
     // Returns a vector of tuples containing the paired u8string merges
-    export std::vector<std::tuple<std::u8string, std::u8string> > vocab_bpe_merges(
+    export std::vector<std::pair<std::u8string, std::u8string> > vocab_bpe_merges(
         const std::filesystem::path &filepath) {
         if (!std::filesystem::exists(filepath)) {
             throw std::runtime_error("Vocab Bpe File Does Not Exist");
@@ -138,7 +133,7 @@ namespace BPEHelpers {
                          std::istreambuf_iterator<char>());
         file_stream.close();
 
-        std::vector<std::tuple<std::u8string, std::u8string> > bpe_merges;
+        std::vector<std::pair<std::u8string, std::u8string> > bpe_merges;
 
         // 2. Split into lines using C++20 ranges
         auto lines_view = text | std::views::split('\n');
@@ -182,9 +177,36 @@ namespace BPEHelpers {
 
         return bpe_merges;
     }
+
+    export auto get_pairs(const std::vector<std::u8string> &word) {
+        std::set<std::pair<std::u8string, std::u8string> > output{};
+
+        if (word.size() < 2) {
+            return output;
+        }
+
+        for (std::size_t i = 0; i + 1 < word.size(); ++i) {
+            output.insert({word[i], word[i + 1]});
+        }
+
+        return output;
+    }
 }
 
 namespace GPT2BPE {
+    // Custom hash function for std::pair
+    struct pair_hash {
+        template<class T1, class T2>
+        std::size_t operator ()(const std::pair<T1, T2> &p) const {
+            // Hash individual elements
+            auto h1 = std::hash<T1>{}(p.first);
+            auto h2 = std::hash<T2>{}(p.second);
+
+            // Combine hashes (Using a bitwise XOR and bit shift to reduce collisions)
+            return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+        }
+    };
+
     export class Encoder {
         std::filesystem::path m_encoder_json_path{};
         std::filesystem::path m_vocab_bpe_path{};
@@ -192,14 +214,111 @@ namespace GPT2BPE {
         std::unordered_map<int, std::string> m_decoder{};
         std::unordered_map<int, std::u8string> m_bytes_encoder{};
         std::unordered_map<std::u8string, int> m_bytes_decoder{};
-        std::unordered_map<std::string, std::vector<std::string>> m_cache; // lru is complicating so avoiding it for now
+        std::unordered_map<std::pair<std::u8string, std::u8string>, int, pair_hash> m_bpe_ranks{};
+        std::unordered_map<std::string, std::string> m_cache{}; // lru is complicating so avoiding it for now
+
+        auto bpe(const std::string &token) {
+            if (m_cache.contains(token)) {
+                return m_cache[token];
+            }
+
+            std::vector<std::u8string> word{};
+            word.reserve(token.size());
+
+            for (unsigned char ch: token) {
+                word.emplace_back(1, static_cast<char8_t>(ch));
+            }
+
+            auto pairs = BPEHelpers::get_pairs(word);
+
+            if (pairs.empty()) {
+                m_cache[token] = token;
+                return token;
+            }
+
+            while (true) {
+                auto bigram_it = std::ranges::min_element(pairs, [this](const auto &lhs, const auto &rhs) {
+                    constexpr int infinity = std::numeric_limits<int>::max();
+
+                    auto lhs_it = m_bpe_ranks.find(lhs);
+                    auto rhs_it = m_bpe_ranks.find(rhs);
+
+                    int lhs_rank = lhs_it == m_bpe_ranks.end() ? infinity : lhs_it->second;
+                    int rhs_rank = rhs_it == m_bpe_ranks.end() ? infinity : rhs_it->second;
+
+                    return lhs_rank < rhs_rank;
+                });
+
+                if (!m_bpe_ranks.contains(*bigram_it)) {
+                    break;
+                }
+
+                const auto &first = bigram_it->first;
+                const auto &second = bigram_it->second;
+
+                std::vector<std::u8string> new_word;
+                std::size_t i = 0;
+
+                while (i < word.size()) {
+                    auto j_it = std::find(word.begin() + static_cast<std::ptrdiff_t>(i), word.end(), first);
+
+                    if (j_it == word.end()) {
+                        new_word.insert(new_word.end(), word.begin() + static_cast<std::ptrdiff_t>(i), word.end());
+                        break;
+                    }
+
+                    auto j = static_cast<std::size_t>(std::distance(word.begin(), j_it));
+
+                    new_word.insert(
+                        new_word.end(),
+                        word.begin() + static_cast<std::ptrdiff_t>(i),
+                        word.begin() + static_cast<std::ptrdiff_t>(j)
+                    );
+
+                    i = j;
+                    if (word[i] == first && i + 1 < word.size() && word[i + 1] == second) {
+                        std::u8string merged = first;
+                        merged += second;
+                        new_word.push_back(std::move(merged));
+                        i += 2;
+                    } else {
+                        new_word.push_back(word[i]);
+                        i += 1;
+                    }
+                }
+
+                word = std::move(new_word);
+
+                if (word.size() == 1) {
+                    break;
+                }
+
+                pairs = BPEHelpers::get_pairs(word);
+            }
+
+            std::string result{};
+
+            for (std::size_t i = 0; i < word.size(); ++i) {
+                if (i != 0) {
+                    result += ' ';
+                }
+
+                result += std::string(
+                    reinterpret_cast<const char *>(word[i].data()),
+                    word[i].size()
+                );
+            }
+
+            m_cache[token] = result;
+            return result;
+        }
 
     public:
-        explicit Encoder(std::filesystem::path encoder_path,
-                         std::filesystem::path vocab_path) : m_encoder_json_path(std::move(encoder_path)),
-                                                             m_vocab_bpe_path(std::move(vocab_path)) {
+        explicit Encoder(const std::filesystem::path &encoder_path,
+                         const std::filesystem::path &vocab_path) : m_encoder_json_path(encoder_path),
+                                                                    m_vocab_bpe_path(vocab_path) {
             auto encoder_json_data = BPEHelpers::read_encoder_data(encoder_path);
-            for (auto it = encoder_json_data->begin(); it < encoder_json_data->end(); it++) {
+            for (auto it = encoder_json_data->begin(); it != encoder_json_data->end(); ++it) {
                 m_encoder.insert({it.key(), it.value()});
                 m_decoder.insert({it.value(), it.key()});
             }
@@ -208,67 +327,95 @@ namespace GPT2BPE {
             for (const auto &[key, value]: m_bytes_encoder) {
                 m_bytes_decoder.insert({value, key});
             }
+            auto const bpe_data = BPEHelpers::vocab_bpe_merges(m_vocab_bpe_path);
+
+            for (auto const [x, y]: bpe_data | std::views::enumerate) {
+                m_bpe_ranks.insert({
+                    y, x
+                });
+            }
+            // for (auto const& [x, y]: m_bpe_ranks) {
+            //     std::print(R"(('{}', '{}'): {},)", reinterpret_cast<const char *>(x.first.c_str()), reinterpret_cast<const char *>(x.second.c_str()), y);
+            // }
         }
-        std::vector<std::string> bpe(const std::string& token) {
-            if (m_cache.find(token) != m_cache.end()) {
-                return m_cache[token];
+
+        auto encode(const std::string &text) -> std::vector<int> {
+            std::vector<int> bpe_tokens{};
+
+            std::regex pat(
+                R"('s|'t|'re|'ve|'m|'ll|'d| ?[[:alpha:]]+| ?[[:digit:]]+| ?[^[:space:][:alpha:][:digit:]]+|[[:space:]]+(?!\S)|[[:space:]]+)"
+            );
+
+            auto begin = std::sregex_iterator(text.begin(), text.end(), pat);
+            auto end = std::sregex_iterator{};
+
+            for (auto it = begin; it != end; ++it) {
+                std::string token = it->str();
+
+                std::string encoded_token{};
+
+                for (unsigned char byte: token) {
+                    const auto &mapped = m_bytes_encoder.at(static_cast<int>(byte));
+                    encoded_token += std::string(
+                        reinterpret_cast<const char *>(mapped.data()),
+                        mapped.size()
+                    );
+                }
+
+                std::string bpe_result = bpe(encoded_token);
+
+                auto parts = bpe_result | std::views::split(' ');
+
+                for (auto part: parts) {
+                    std::string bpe_token{part.begin(), part.end()};
+                    bpe_tokens.push_back(m_encoder.at(bpe_token));
+                }
             }
 
-            // Initialize word as an array of individual symbols
-            std::vector<std::string> word;
-            std::string current = "";
-            for (size_t i = 0; i < token.length();) {
-                unsigned char c = token[i];
-                if ((c & 0x80) == 0) { current = token.substr(i, 1); i += 1; }
-                else if ((c & 0xE0) == 0xC0) { current = token.substr(i, 2); i += 2; }
-                else if ((c & 0xF0) == 0xE0) { current = token.substr(i, 3); i += 3; }
-                else { current = token.substr(i, 4); i += 4; }
-                word.push_back(current);
+            return bpe_tokens;
+        }
+
+        auto decode(const std::vector<int>& tokens) -> std::string {
+            std::string text{};
+
+            for (int token : tokens) {
+                text += m_decoder.at(token);
             }
 
-            std::set<std::pair<std::string, std::string>> pairs = BPEHelpers::get_pairs(word);
-            if (pairs.empty()) return {token};
-            
+            std::string decoded{};
 
-            while (true) {
-                // Find the bigram with the minimum rank (highest priority)
-                std::pair<std::string, std::string> bigram = *pairs.begin();
-                int min_rank = 1e9;
-                bool found = false;
+            for (std::size_t i = 0; i < text.size();) {
+                std::u8string matched{};
+                int matched_byte = -1;
+                std::size_t matched_size = 0;
 
-                for (const auto& pair : pairs) {
-                    if (bpe_ranks.find(pair) != bpe_ranks.end()) {
-                        if (bpe_ranks[pair] < min_rank) {
-                            min_rank = bpe_ranks[pair];
-                            bigram = pair;
-                            found = true;
+                for (const auto& [unicode_string, byte_value] : m_bytes_decoder) {
+                    std::string candidate{
+                        reinterpret_cast<const char*>(unicode_string.data()),
+                        unicode_string.size()
+                    };
+
+                    if (
+                        text.size() - i >= candidate.size() &&
+                        text.compare(i, candidate.size(), candidate) == 0
+                    ) {
+                        if (candidate.size() > matched_size) {
+                            matched = unicode_string;
+                            matched_byte = byte_value;
+                            matched_size = candidate.size();
                         }
                     }
                 }
 
-                if (!found) break; // No more rankable merges available
-
-                std::string first = bigram.first;
-                std::string second = bigram.second;
-                std::vector<std::string> new_word;
-
-                for (size_t i = 0; i < word.size(); ++i) {
-                    if (word[i] == first && i < word.size() - 1 && word[i + 1] == second) {
-                        new_word.push_back(first + second);
-                        i++; // Skip the second token of the bigram
-                    } else {
-                        new_word.push_back(word[i]);
-                    }
+                if (matched_byte == -1) {
+                    throw std::runtime_error("Could not decode byte-unicode token");
                 }
 
-                word = new_word;
-                if (word.size() == 1) break;
-                pairs = get_pairs(word);
+                decoded.push_back(static_cast<char>(matched_byte));
+                i += matched_size;
             }
 
-            cache[token] = word;
-            return word;
+            return decoded;
         }
-
     };
 }
