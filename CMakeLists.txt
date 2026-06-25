@@ -10,13 +10,13 @@ SET(BOOST_UT_CXX_MODULES ON)
 set(CMAKE_CXX_STANDARD 26)
 
 
-add_executable(llm_from_scratch main.cpp src/start_up.cppm src/bpe/Tokenizers/tokenizer.cppm src/data_structure/BiDirectionalMap/BiDirectionalMap.cppm)
+add_executable(llm_from_scratch main.cpp src/start_up.cppm src/bpe/Tokenizers/tokenizer.cppm src/data_structure/BiDirectionalMap/bi_directional_map.cppm)
 target_compile_features(llm_from_scratch PRIVATE cxx_std_26)
 
 target_sources(llm_from_scratch PUBLIC FILE_SET all_my_modules TYPE CXX_MODULES FILES
         src/start_up.cppm
         src/bpe/Tokenizers/tokenizer.cppm
-        src/data_structure/BiDirectionalMap/BiDirectionalMap.cppm)
+        src/data_structure/BiDirectionalMap/bi_directional_map.cppm)
 
 target_compile_options(llm_from_scratch PRIVATE -Wno-reserved-module-identifier)
 
@@ -34,16 +34,16 @@ FetchContent_MakeAvailable(json)
 set(DOCTEST_INCLUDE_DIR ${doctest_SOURCE_DIR})
 include_directories(${DOCTEST_INCLUDE_DIR})
 
-add_executable(tokenizer_tests src/bpe/Tokenizers/tokenizer_tests.cpp src/bpe/Tokenizers/tokenizer.cppm src/data_structure/BiDirectionalMap/BiDirectionalMap.cppm)
+add_executable(tokenizer_tests src/bpe/Tokenizers/tokenizer_tests.cpp src/bpe/Tokenizers/tokenizer.cppm src/data_structure/BiDirectionalMap/bi_directional_map.cppm)
 target_compile_features(tokenizer_tests PRIVATE cxx_std_26)
-target_sources(tokenizer_tests PUBLIC FILE_SET all_my_modules TYPE CXX_MODULES FILES src/bpe/Tokenizers/tokenizer.cppm src/data_structure/BiDirectionalMap/BiDirectionalMap.cppm)
+target_sources(tokenizer_tests PUBLIC FILE_SET all_my_modules TYPE CXX_MODULES FILES src/bpe/Tokenizers/tokenizer.cppm src/data_structure/BiDirectionalMap/bi_directional_map.cppm)
 target_compile_options(tokenizer_tests PRIVATE -Wno-reserved-module-identifier)
 target_include_directories(tokenizer_tests PUBLIC ${DOCTEST_INCLUDE_DIR})
 
 
-add_executable(bi_directional_map_tests src/data_structure/BiDirectionalMap/bi_directional_map_tests.cpp src/data_structure/BiDirectionalMap/BiDirectionalMap.cppm src/bpe/Tokenizers/tokenizer.cppm)
+add_executable(bi_directional_map_tests src/data_structure/BiDirectionalMap/bi_directional_map_tests.cpp src/data_structure/BiDirectionalMap/bi_directional_map.cppm src/bpe/Tokenizers/tokenizer.cppm)
 target_compile_features(bi_directional_map_tests PRIVATE cxx_std_26)
-target_sources(bi_directional_map_tests PUBLIC FILE_SET all_my_modules TYPE CXX_MODULES FILES src/data_structure/BiDirectionalMap/BiDirectionalMap.cppm src/bpe/Tokenizers/tokenizer.cppm)
+target_sources(bi_directional_map_tests PUBLIC FILE_SET all_my_modules TYPE CXX_MODULES FILES src/data_structure/BiDirectionalMap/bi_directional_map.cppm src/bpe/Tokenizers/tokenizer.cppm)
 target_compile_options(bi_directional_map_tests PRIVATE -Wno-reserved-module-identifier)
 target_include_directories(bi_directional_map_tests PUBLIC ${DOCTEST_INCLUDE_DIR})
 
@@ -60,3 +60,10 @@ target_compile_options(gpt_bpe_tests PRIVATE -Wno-reserved-module-identifier)
 target_include_directories(gpt_bpe_tests PUBLIC ${DOCTEST_INCLUDE_DIR})
 target_link_libraries(gpt_bpe_tests PRIVATE nlohmann_json::nlohmann_json)
 #target_link_libraries(gpt_bpe_tests PRIVATE nlohmann_json_modules)
+
+add_executable(bpe_from_scratch_tests src/bpe/bpe_from_scratch/bpe_from_scratch_tests.cpp src/bpe/bpe_from_scratch/bpe_from_scratch.cppm src/data_structure/BiDirectionalMap/bi_directional_map.cppm src/utils/bpe_helpers.cppm)
+target_compile_features(bpe_from_scratch_tests PRIVATE cxx_std_26)
+target_sources(bpe_from_scratch_tests PUBLIC FILE_SET all_my_modules TYPE CXX_MODULES FILES src/bpe/bpe_from_scratch/bpe_from_scratch.cppm src/data_structure/BiDirectionalMap/bi_directional_map.cppm src/utils/bpe_helpers.cppm)
+target_compile_options(bpe_from_scratch_tests PRIVATE -Wno-reserved-module-identifier)
+target_include_directories(bpe_from_scratch_tests PUBLIC ${DOCTEST_INCLUDE_DIR})
+target_link_libraries(bpe_from_scratch_tests PRIVATE nlohmann_json::nlohmann_json)

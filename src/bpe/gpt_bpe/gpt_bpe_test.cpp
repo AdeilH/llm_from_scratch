@@ -48,6 +48,6 @@ TEST_CASE("Encoder Class:  ") {
     CHECK(encoded == std::vector{15496});
 
     auto decoded = encoder.decode(encoded);
-    //
+
     CHECK(decoded == value);
 }

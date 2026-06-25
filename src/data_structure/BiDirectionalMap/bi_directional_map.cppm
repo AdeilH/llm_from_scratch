@@ -63,7 +63,6 @@ namespace DataStructures {
         }
     };
     export template<typename Key, typename Value>
-    requires std::formattable<Key, char> && std::formattable<Value, char>
     class GenericBiDirectionalMap {
         std::unordered_map<Key, Value> m_key_to_value{};
         std::unordered_map<Value, Key> m_value_to_key{};
@@ -71,7 +70,7 @@ namespace DataStructures {
     public:
         explicit GenericBiDirectionalMap() = default;
 
-        void insert(int key, const std::string &value) {
+        void insert(Key key, const Value &value) {
             auto [value_it, value_inserted] = m_key_to_value.emplace(key, value);
             auto [key_it, key_inserted] = m_value_to_key.emplace(value, key);
 
@@ -80,16 +79,37 @@ namespace DataStructures {
             }
         }
 
-        bool contains(const Value& value) {
-            return m_key_to_value.contains(value);
+        bool contains_key(const Key& k) const {
+            return m_key_to_value.contains(k);
         }
 
-        [[nodiscard]] Value fetch_by_key(int key) {
+        bool contains_value(const Value& v) const {
+            return m_value_to_key.contains(v);
+        }
+
+        [[nodiscard]] Value fetch_by_key(Key key) {
+            std::cout << key << std::endl;
             return m_key_to_value.at(key);
         }
 
         [[nodiscard]] Key fetch_by_value(const Value& value) {
+            std::string printable{
+                reinterpret_cast<const char *>(value.data()),
+                value.size()
+            };
+            std::print("{}\n", printable);
+
             return m_value_to_key.at(value);
+        }
+
+        [[nodiscard]] std::vector<Value> values() const {
+            std::vector<Value> output{};
+
+            for (const auto &[key, value]: m_key_to_value) {
+                output.push_back(value);
+            }
+
+            return output;
         }
 
         [[nodiscard]] std::size_t size() {
@@ -97,6 +117,16 @@ namespace DataStructures {
                 throw std::runtime_error("Something is wrong");
             }
             return m_value_to_key.size();
+        }
+
+        [[nodiscard]] std::vector<std::pair<Key, Value>> items() const {
+            std::vector<std::pair<Key, Value>> output{};
+
+            for (const auto &[key, value]: m_key_to_value) {
+                output.emplace_back(key, value);
+            }
+
+            return output;
         }
 
         [[nodiscard]] std::string to_string() const {
@@ -115,7 +145,13 @@ namespace DataStructures {
             output += "}";
             return output;
         }
+
+        void clear() {
+            m_key_to_value.clear();
+            m_value_to_key.clear();
+        }
     };
+
 }
 
 

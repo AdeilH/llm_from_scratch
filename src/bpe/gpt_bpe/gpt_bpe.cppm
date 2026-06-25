@@ -400,7 +400,6 @@ namespace GPT2BPE {
                         text.compare(i, candidate.size(), candidate) == 0
                     ) {
                         if (candidate.size() > matched_size) {
-                            matched = unicode_string;
                             matched_byte = byte_value;
                             matched_size = candidate.size();
                         }
