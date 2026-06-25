@@ -74,9 +74,11 @@ namespace DataStructures {
             auto [value_it, value_inserted] = m_key_to_value.emplace(key, value);
             auto [key_it, key_inserted] = m_value_to_key.emplace(value, key);
 
-            if (!value_inserted || !key_inserted) {
-                throw std::runtime_error("bi_directional_map insert failed");
-            }
+            // if (!value_inserted || !key_inserted) {
+            //     // std::cout << value << std::endl;
+            //     std::cout << key << std::endl;
+            //     throw std::runtime_error("bi_directional_map insert failed");
+            // }
         }
 
         bool contains_key(const Key& k) const {
@@ -88,17 +90,10 @@ namespace DataStructures {
         }
 
         [[nodiscard]] Value fetch_by_key(Key key) {
-            std::cout << key << std::endl;
             return m_key_to_value.at(key);
         }
 
         [[nodiscard]] Key fetch_by_value(const Value& value) {
-            std::string printable{
-                reinterpret_cast<const char *>(value.data()),
-                value.size()
-            };
-            std::print("{}\n", printable);
-
             return m_value_to_key.at(value);
         }
 

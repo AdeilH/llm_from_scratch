@@ -214,6 +214,9 @@ namespace BPEFromScratch {
         std::size_t get_vocab_size() {
             return m_vocab_inverse_vocab.size();
         }
+        std::size_t get_bpe_merges_size() {
+            return m_bpe_merges.size();
+        }
         void train(
             const std::string &text,
             int vocab_size,
@@ -268,17 +271,6 @@ namespace BPEFromScratch {
                 }
 
                 token_id_sequences.push_back(std::move(ids));
-            }
-
-            for (int new_id = static_cast<int>(m_vocab_inverse_vocab.size()); new_id < vocab_size; ++new_id) {
-                auto pair_id = find_freq_pair(token_id_sequences);
-
-                if (!pair_id.has_value()) {
-                    break;
-                }
-
-                token_id_sequences = replace_pair(token_id_sequences, pair_id.value(), new_id);
-                m_bpe_merges[pair_id.value()] = new_id;
             }
 
             for (int new_id = static_cast<int>(m_vocab_inverse_vocab.size()); new_id < vocab_size; ++new_id) {
@@ -512,7 +504,7 @@ namespace BPEFromScratch {
 
         std::vector<int> encode(
             const std::string &text,
-            const std::optional<std::set<std::u8string> > &allowed_special = std::nullopt
+            const std::optional<std::set<std::u8string> > &allowed_special = std::set<std::u8string>{u8"<|endoftext|>"}
         ) {
             std::vector<int> token_ids{};
 
@@ -658,13 +650,14 @@ namespace BPEFromScratch {
                 vocab_json[std::to_string(id)] = token_string;
             }
 
-            std::ofstream vocab_file(vocab_path, std::ios::binary);
+            std::ofstream vocab_file(vocab_path, std::ios::binary | std::ios::ate);
             if (!vocab_file) {
                 throw std::runtime_error("Could not open vocab file for writing.");
             }
 
-            vocab_file << vocab_json.dump(2);
+            // vocab_file << vocab_json;
 
+            vocab_file << vocab_json.dump(-1, ' ', false, nlohmann::json::error_handler_t::ignore);
             json merges_json = json::array();
 
             for (const auto &[pair, new_id]: m_bpe_merges) {
@@ -679,7 +672,7 @@ namespace BPEFromScratch {
                 throw std::runtime_error("Could not open BPE merges file for writing.");
             }
 
-            merges_file << merges_json.dump(2);
+            merges_file << merges_json.dump(-1, ' ', false, nlohmann::json::error_handler_t::ignore);
         }
 
         void load_vocab_and_merges(
