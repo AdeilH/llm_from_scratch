@@ -82,3 +82,6 @@ Thumbs.db
 
 # CLion / JetBrains
 cmake
+
+libtorch-shared-with-deps-latest.zip
+libtorch/

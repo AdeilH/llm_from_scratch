@@ -1,5 +1,6 @@
+#include <torch/torch.h>
+
 import std;
-import start_up;
 import tokenizer;
 int main() {
 
@@ -7,6 +8,10 @@ int main() {
 
     std::print("{}", Tokenizer::generate_tokens_version_1(Tokenizer::read_file(filepath)));
 
-    std::print("{}", add(3, 4));
+    const torch::Tensor tensor = torch::rand({2, 3});
+    std::cout << tensor << std::endl;
+    const auto input = torch::Tensor{};
+    std::cout << input << std::endl;
+
     return 0;
 }

@@ -8,17 +8,23 @@ SET(BOOST_UT_CXX_MODULES ON)
 
 
 set(CMAKE_CXX_STANDARD 26)
+list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/libtorch")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/libtorch")
 
+find_package(Torch REQUIRED)
+include_directories("${CMAKE_SOURCE_DIR}/libtorch/include")
 
-add_executable(llm_from_scratch main.cpp src/start_up.cppm src/bpe/Tokenizers/tokenizer.cppm src/data_structure/BiDirectionalMap/bi_directional_map.cppm)
+add_executable(llm_from_scratch main.cpp src/bpe/Tokenizers/tokenizer.cppm src/data_structure/BiDirectionalMap/bi_directional_map.cppm)
 target_compile_features(llm_from_scratch PRIVATE cxx_std_26)
 
 target_sources(llm_from_scratch PUBLIC FILE_SET all_my_modules TYPE CXX_MODULES FILES
-        src/start_up.cppm
         src/bpe/Tokenizers/tokenizer.cppm
         src/data_structure/BiDirectionalMap/bi_directional_map.cppm)
 
 target_compile_options(llm_from_scratch PRIVATE -Wno-reserved-module-identifier)
+
+target_include_directories(llm_from_scratch PRIVATE "${CMAKE_SOURCE_DIR}/libtorch/include")
+target_link_libraries(llm_from_scratch "${TORCH_LIBRARIES}")
 
 set(DOCTEST_VERSION v2.4.11)
 FetchContent_Declare(doctest
@@ -67,3 +73,13 @@ target_sources(bpe_from_scratch_tests PUBLIC FILE_SET all_my_modules TYPE CXX_MO
 target_compile_options(bpe_from_scratch_tests PRIVATE -Wno-reserved-module-identifier)
 target_include_directories(bpe_from_scratch_tests PUBLIC ${DOCTEST_INCLUDE_DIR})
 target_link_libraries(bpe_from_scratch_tests PRIVATE nlohmann_json::nlohmann_json)
+
+
+add_executable(simplified_self_attention_lib_torch_test src/attention_mechanisms/simplified_self_attention/with_lib_torch/simplified_self_attention_tests.cpp src/attention_mechanisms/simplified_self_attention/with_lib_torch/simplified_self_attention.cppm)
+target_compile_features(simplified_self_attention_lib_torch_test PRIVATE cxx_std_26)
+target_sources(simplified_self_attention_lib_torch_test PUBLIC FILE_SET all_my_modules TYPE CXX_MODULES FILES
+        src/attention_mechanisms/simplified_self_attention/with_lib_torch/simplified_self_attention.cppm)
+target_compile_options(simplified_self_attention_lib_torch_test PRIVATE -Wno-reserved-module-identifier)
+target_include_directories(simplified_self_attention_lib_torch_test PRIVATE "${CMAKE_SOURCE_DIR}/libtorch/include")
+target_link_libraries(simplified_self_attention_lib_torch_test "${TORCH_LIBRARIES}")
+
